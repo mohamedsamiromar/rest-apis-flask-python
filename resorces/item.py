@@ -26,6 +26,7 @@ class AddItem(MethodView):
 
 @itm.route("/item/<string:item_id>")
 class Item(MethodView):
+    @itm.response(202, ItemSchema)
     def get(self, item_id):
         try:
             return items[item_id]
