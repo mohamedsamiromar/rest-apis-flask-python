@@ -4,9 +4,10 @@ import uuid
 from flask import request
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-from db import items
+from db import items, db
+from models.items import ItemModel
 from schema import ItemSchema
-
+from sqlalchemy.exc import SQLAlchemyError 
 
 
 itm = Blueprint("Items", "items", description="Operation on item")
@@ -16,13 +17,15 @@ itm = Blueprint("Items", "items", description="Operation on item")
 class AddItem(MethodView):
 
     @itm.arguments(ItemSchema)
+    @itm.response(201, ItemSchema)
     def post(self, data):
-        # data = request.get_json()
-        if data is None:
-            abort(505, message="Missing Data")
-        item_id = uuid.uuid4().hex
-        items = {**data, "id": item_id}
-        return data
+        item = ItemModel(**data)
+        try:
+            db.session.add(item)
+            db.session.commit
+        except SQLAlchemyError:
+            abort(500, message="An error occurred while inserting item in database")
+
 
 @itm.route("/item/<string:item_id>")
 class Item(MethodView):
