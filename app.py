@@ -2,6 +2,7 @@ from flask import Flask
 from flask_smorest import Api
 from resources.item import itm as ItemBluPrint
 from resources.store import blp as StoreBluPrint
+from resources.tag import tg as TagBluePrint
 
 import os
 from db import db
@@ -19,11 +20,16 @@ def create_app(db_url=None):
     app.config ["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     db.init_app(app)
 
-    with app.app_context():
+    # with app.app_context():
+    #     db.create_all()
+
+    app.before_first_request
+    def create_tables():
         db.create_all()
     api = Api(app)
 
     api.register_blueprint(ItemBluPrint)
     api.register_blueprint(StoreBluPrint)
+    app.register_blueprint(TagBluePrint)
 
     return app

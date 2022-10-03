@@ -1,3 +1,4 @@
+from tkinter.tix import Tree
 from marshmallow import Schema, fields
 
 
@@ -17,5 +18,21 @@ class ItemSchema(PlainItemSchema):
     store = fields.Nested(PlainStoreSchema(), dump_only=True)
 
 
+class PlainTagSchema(Schema):
+    id = fields.Int(dump_only=True)
+    name = fields.Str()
+
 class StoreSchema(PlainStoreSchema):
     items = fields.List(fields.Nested(PlainItemSchema()), dump_only=True)
+    tags = fields.List(fields.Nested(PlainTagSchema()), dump_only=True)
+
+
+class UpdateItemSchema(Schema):
+    name = fields.Str()
+    price = fields.Float()
+    store_id = fields.Int()
+
+
+class TagSchema(Schema):
+    store_id = fields.Int(load_only=True)
+    store = fields.Nested(PlainStoreSchema(), dump_only=True)
