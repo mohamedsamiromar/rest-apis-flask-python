@@ -10,9 +10,9 @@ from schema import TagSchema
 tg = Blueprint("Tags", "tags", description="Operations on tags")
 
 
-@tg.route("/store/<string: store_id>/tag")
+@tg.route("/store/<string:store_id>/tag")
 class TagsInStore(MethodView):
-    @tg.response(TagSchema)
+    @tg.response(202, TagSchema)
     def get(self, store_id):
         store = StoreModel.query.get_or_404(store_id)
         return store.tags.all()
@@ -39,10 +39,10 @@ class TagsInStore(MethodView):
         return tag
 
 
-@tg.route("tag/<sting:tag_id>")
+@tg.route("/tag/<string:tag_id>")
 class Tag(MethodView):
 
-    @tg.response(200, TagSchema):
+    @tg.response(200, TagSchema)
     def get(self, tag_id):
         tag = TagModel.query.get_or_404(tag_id)
         return tag
