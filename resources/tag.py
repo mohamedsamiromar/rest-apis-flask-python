@@ -13,7 +13,7 @@ from schema import TagSchema, TagAndItemSchema
 tg = Blueprint("Tags", "tags", description="Operations on tags")
 
 
-@tg.route("/store/<string:store_id>/tag")
+@tg.route("/store/<int:store_id>/tag")
 class TagsInStore(MethodView):
     @tg.response(202, TagSchema)
     def get(self, store_id):
@@ -42,7 +42,7 @@ class TagsInStore(MethodView):
         return tag
 
 
-@tg.route("/tag/<string:tag_id>")
+@tg.route("/tag/<int:tag_id>")
 class Tag(MethodView):
 
     @tg.response(200, TagSchema)
@@ -51,7 +51,7 @@ class Tag(MethodView):
         return tag
 
 
-@tg.route("/item/<string:item_id>/tag/<string:tag_id>")
+@tg.route("/item/<int:item_id>/tag/<int:tag_id>")
 class LinkTagToItem(MethodView):
 
     @tg.response(200, TagSchema)
@@ -81,7 +81,7 @@ class LinkTagToItem(MethodView):
         return {"message": "Item removed from tag", "item": item, "tag": tag}
 
 
-@tg.route("/tag/<string:tag_id>")
+@tg.route("/tag/<int:tag_id>")
 class Tag(MethodView):
     @tg.response(200, TagSchema)
     def get(self, tag_id):

@@ -1,13 +1,11 @@
 from email import message
-from pydoc import describe
-import uuid
-from flask import request, session
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 from db import items, db
-from models.items import *
+from models import ItemModel
 from schema import ItemSchema, UpdateItemSchema
 from sqlalchemy.exc import SQLAlchemyError 
+from flask_jwt_extended import jwt_required, get_jwt
 
 
 itm = Blueprint("Items", "items", description="Operation on item")
@@ -16,6 +14,7 @@ itm = Blueprint("Items", "items", description="Operation on item")
 @itm.route("/add-item")
 class AddItem(MethodView):
 
+    @jwt_required()
     @itm.arguments(ItemSchema)
     @itm.response(201, ItemSchema)
     def post(self, data):
@@ -27,20 +26,26 @@ class AddItem(MethodView):
             abort(500, message="An error occurred while inserting item in database")
 
 
-@itm.route("/item/<string:item_id>")
+@itm.route("/item/<int:item_id>")
 class Item(MethodView):
+    @jwt_required()
     @itm.arguments(ItemSchema)
     @itm.response(202, ItemSchema)
     def get(self, item_id):
         item = ItemModel.query.get_or_404(item_id)
         return item
-
+    
+    @jwt_required()
     def delete(self, item_id):
+        jwt = get_jwt
+        if not jwt:
+            abort(401, message="Admin privilege required")
         item = ItemModel.query.get_or_404(item_id)
         db.session.delete(item)
         db.session.commit
         return {"Message": "Item Deleted"}
 
+    @jwt_required()
     @itm.arguments(UpdateItemSchema)
     @itm.response(200, ItemSchema)
     def put(self, item_id, item_data):
