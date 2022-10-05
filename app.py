@@ -1,11 +1,16 @@
-from flask import Flask
+from atexit import register
+from flask import Flask, jsonify
 from flask_smorest import Api
 from resources.item import itm as ItemBluPrint
 from resources.store import blp as StoreBluPrint
 from resources.tag import tg as TagBluePrint
-
+from resources.user import blp as UserBluePrint
+from flask_jwt_extended import JWTManager
+import secrets
 import os
 from db import db
+from models import UserModel
+
 
 def create_app(db_url=None):
     app = Flask(__name__)
@@ -17,7 +22,15 @@ def create_app(db_url=None):
     app.config["OPENAPI_SWAGGER_UI_PATH"]= "/swagger-ui"
     app.config["OPENAPI_SWAGGER_UI_URL"] = "https://cdn.jsdelivr.net/npm/swagger-ui-dist/"
     app.config["SQLALCHEMY_DATABASE_URI"] = db_url or os.getenv("DATABASE_URL", "sqlite:///data.db")
-    app.config ["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    app.config["JWT_SECRET_KEY"] = "809925493099150565945117651761603124"
+    """
+    How generate secret key?
+    - import secrets
+    - run this in terminal secrets.SystemRandom().getrandbits(120)
+      and will generate secret key :) 
+    """
+
     db.init_app(app)
 
     # with app.app_context():
@@ -27,9 +40,47 @@ def create_app(db_url=None):
     def create_tables():
         db.create_all()
     api = Api(app)
+    jwt = JWTManager(app)
+  
+    @jwt.additional_claims_loader
+    def add_claims_to_jwt(identity):
+      # look in the database and see weather the users is an admin 
+      user  = UserModel.query.filter(id=identity)
+      if user == "is_admin":
+        return {"is_admin": True}
+      return {"is_admin": False}
+
+    @jwt.expired_token_loader
+    def expired_token_callback(jwt_header, jwt_payload):
+        return (
+            jsonify({"message": "The token has expired.", "error": "token_expired"}),
+            401,
+        )
+
+    @jwt.invalid_token_loader
+    def invalid_token_callback(error):
+        return (
+            jsonify(
+                {"message": "Signature verification failed.", "error": "invalid_token"}
+            ),
+            401,
+        )
+
+    @jwt.unauthorized_loader
+    def missing_token_callback(error):
+        return (
+            jsonify(
+                {
+                    "description": "Request does not contain an access token.",
+                    "error": "authorization_required",
+                }
+            ),
+            401,
+        )
 
     api.register_blueprint(ItemBluPrint)
     api.register_blueprint(StoreBluPrint)
     app.register_blueprint(TagBluePrint)
+    app.register_blueprint(UserBluePrint)
 
     return app

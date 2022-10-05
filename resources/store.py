@@ -10,11 +10,12 @@ from schema import StoreSchema
 from models.store import StoreModel
 from db import db
 from sqlalchemy.exc import SQLAlchemyError
+from flask_jwt_extended import jwt_required
 
 blp = Blueprint("stores", __name__, description="Operations on store")
 
 
-@blp.route("/store/<string:store_id>")
+@blp.route("/store/<int:store_id>")
 class Store(MethodView):
     def get(slef, store_id):
         try:
@@ -33,6 +34,7 @@ class Store(MethodView):
 @blp.route("/add-store")
 class AddStore(MethodView):
 
+    @jwt_required()
     @blp.arguments(StoreSchema)
     @blp.response(200, StoreSchema)
     def post(self, data):
