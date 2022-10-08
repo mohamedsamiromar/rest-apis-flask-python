@@ -6,15 +6,13 @@ from models import ItemModel
 from schema import ItemSchema, UpdateItemSchema
 from sqlalchemy.exc import SQLAlchemyError 
 from flask_jwt_extended import jwt_required, get_jwt
-
-
 itm = Blueprint("Items", "items", description="Operation on item")
 
 
 @itm.route("/add-item")
 class AddItem(MethodView):
 
-    @jwt_required()
+    @jwt_required(fresh=True)
     @itm.arguments(ItemSchema)
     @itm.response(201, ItemSchema)
     def post(self, data):
@@ -34,7 +32,7 @@ class Item(MethodView):
     def get(self, item_id):
         item = ItemModel.query.get_or_404(item_id)
         return item
-    
+
     @jwt_required()
     def delete(self, item_id):
         jwt = get_jwt
