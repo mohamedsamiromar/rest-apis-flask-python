@@ -20,6 +20,9 @@ class PlainTagSchema(Schema):
 
 class ItemSchema(PlainItemSchema):
     store_id = fields.Int(required=True, load_only=True)
+    name = fields.Str(required=True, load_only=True)
+    price = fields.Float(required=True, load_only=True)
+    description = fields.Str(required=True, load_only=True)
     store = fields.Nested(PlainStoreSchema(), dump_only=True)
     tags = fields.Nested(PlainTagSchema(), dump_only = True)
 
