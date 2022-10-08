@@ -1,4 +1,3 @@
-from tkinter.tix import Tree
 from marshmallow import Schema, fields
 
 
