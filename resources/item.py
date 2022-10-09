@@ -1,7 +1,7 @@
 from email import message
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-from db import items, db
+from db import db
 from models import ItemModel
 from schema import ItemSchema, UpdateItemSchema
 from sqlalchemy.exc import SQLAlchemyError 

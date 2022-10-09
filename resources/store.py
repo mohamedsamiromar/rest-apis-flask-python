@@ -1,34 +1,40 @@
-from email import message
-from pydoc import describe
-from sqlite3 import IntegrityError
-import uuid
-from flask import request
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-from db import items, store
-from schema import StoreSchema
+from schema import StoreSchema, UpdateStoreSchema
 from models.store import StoreModel
 from db import db
 from sqlalchemy.exc import SQLAlchemyError
 from flask_jwt_extended import jwt_required
-
 blp = Blueprint("stores", __name__, description="Operations on store")
 
 
 @blp.route("/store/<int:store_id>")
 class Store(MethodView):
-    def get(slef, store_id):
-        try:
-            return store[store_id]
-        except KeyError:
-            abort(404, message="Store Not Found")
+    @blp.response(200, StoreSchema)
+    def get(self, store_id):
+        store = StoreModel.query.get_or_404(store_id)
+        return store
 
+    @jwt_required()
     def delete(self, store_id):
-        try:
-            del store[store_id]
-            return {"message": "store deleted"}
-        except KeyError:
-            abort(404, message="Store Not Found")
+        store = StoreModel.query.get_or_404(store_id)
+        db.session.delete(store)
+        db.session.commit
+        return {"message": "Store Has Been Deleted"}
+    
+    @jwt_required()
+    @blp.arguments(UpdateStoreSchema)
+    @blp.response(200, StoreSchema)
+    def put(self, store_data, store_id):
+        store = StoreModel.query.get_or_404(store_id)
+        if store:
+            store.name = store_data['name']
+        else:
+            store = StoreModel(**store_data)
+            db.session.add(store)
+            db.session.commit
+        return store
+
 
 
 @blp.route("/add-store")
