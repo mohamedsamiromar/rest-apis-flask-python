@@ -1,82 +1,99 @@
-from email import message
-from flask.views import MethodView
-from flask_smorest import Blueprint, abort
-from sqlalchemy.exc import SQLAlchemyError
-from models import UserModel
-from db import db
-from schema import UserSchema
-from passlib.hash import pbkdf2_sha256
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt, create_refresh_token, get_jwt_identity
+from flask_restful import Resource, reqparse
+from hmac import compare_digest
+from flask_jwt_extended import (
+    create_access_token,
+    create_refresh_token,
+    get_jwt_identity,
+    jwt_required,
+    get_jwt,
+)
+from models.user import UserModel
 from blocklist import BLOCKLIST
 
-blp = Blueprint("Users", "users", description="Operations on users")
+BLANK_ERROR = "'{}' cannot be blank."
+USER_ALREADY_EXISTS = "A user with that username already exists."
+CREATED_SUCCESSFULLY = "User created successfully."
+USER_NOT_FOUND = "User not found."
+USER_DELETED = "User deleted."
+INVALID_CREDENTIALS = "Invalid credentials!"
+USER_LOGGED_OUT = "User <id={user_id}> successfully logged out."
+
+_user_parser = reqparse.RequestParser()
+_user_parser.add_argument(
+    "username", type=str, required=True, help=BLANK_ERROR.format("username")
+)
+_user_parser.add_argument(
+    "password", type=str, required=True, help=BLANK_ERROR.format("password")
+)
 
 
-@blp.route("/register")
-class UserRegister(MethodView):
-    @blp.arguments(UserSchema)
-    def post(self, user_data):
-        if UserModel.query.filter(UserModel.username == user_data["username"]).first():
-            abort(409, message="A user with that username already exists.")
-        user = UserModel(
-            username=user_data["username"],
-            password=pbkdf2_sha256.hash(user_data["password"]),
-        )
-        db.session.add(user)
-        db.session.commit()
+class UserRegister(Resource):
+    @classmethod
+    def post(cls):
+        data = _user_parser.parse_args()
 
-        return {"message": "User created successfully."}, 201
+        if UserModel.find_by_username(data["username"]):
+            return {"message": USER_ALREADY_EXISTS}, 400
+
+        user = UserModel(**data)
+        user.save_to_db()
+
+        return {"message": CREATED_SUCCESSFULLY}, 201
 
 
-@blp.route("/user/<int:user_id>")
-class User(MethodView):
+class User(Resource):
+    """
+    This resource can be useful when testing our Flask app. We may not want to expose it to public users, but for the
+    sake of demonstration in this course, it can be useful when we are manipulating data regarding the users.
+    """
 
-    @blp.arguments(UserSchema)
-    @blp.response(200, UserSchema)
-    def get(self, user_id):
-        user = UserModel.query.get_or_404(user_id)
-        return user
+    @classmethod
+    def get(cls, user_id: int):
+        user = UserModel.find_by_id(user_id)
+        if not user:
+            return {"message": USER_NOT_FOUND}, 404
+        return user.json(), 200
 
-    def delete(self, user_id):
-        user = UserModel.query.get_or_404(user_id)
-        db.session.delete(user)
-        db.session.commit()
-        return {"message": "User Is Deleted"}
+    @classmethod
+    def delete(cls, user_id: int):
+        user = UserModel.find_by_id(user_id)
+        if not user:
+            return {"message": USER_NOT_FOUND}, 404
+        user.delete_from_db()
+        return {"message": USER_DELETED}, 200
 
 
-@blp.route("/login")
-class UserLogin(MethodView):
-    @blp.arguments(UserSchema)
-    def post(self, user_data):
-        user = UserModel.query.filter(
-            UserModel.username == user_data["username"]
-        ).first()
+class UserLogin(Resource):
+    @classmethod
+    def post(cls):
+        data = _user_parser.parse_args()
 
-        if user and pbkdf2_sha256.verify(user_data["password"], user.password):
+        user = UserModel.find_by_username(data["username"])
+
+        # this is what the `authenticate()` function did in security.py
+        if user and compare_digest(user.password, data["password"]):
+            # identity= is what the identity() function did in security.py—now stored in the JWT
             access_token = create_access_token(identity=user.id, fresh=True)
             refresh_token = create_refresh_token(user.id)
             return {"access_token": access_token, "refresh_token": refresh_token}, 200
 
-        abort(401, message="Invalid credentials.")
+        return {"message": INVALID_CREDENTIALS}, 401
 
 
-@blp.route("/logout")
-class LogOut(MethodView):
-
-    @jwt_required
-    def post(self):
-        jti = get_jwt()["jti"]
+class UserLogout(Resource):
+    @classmethod
+    @jwt_required()
+    def post(cls):
+        jti = get_jwt()["jti"]  # jti is "JWT ID", a unique identifier for a JWT.
+        user_id = get_jwt_identity()
         BLOCKLIST.add(jti)
-        return {"message": "Successfully logged out"}
+        return {"message": USER_LOGGED_OUT.format(user_id)}, 200
 
 
-@blp.route("/refresh")
-class TokenRefresh(MethodView):
+class TokenRefresh(Resource):
+    @classmethod
     @jwt_required(refresh=True)
-    def post(self):
+    def post(cls):
         current_user = get_jwt_identity()
         new_token = create_access_token(identity=current_user, fresh=False)
-        # Make it clear that when to add the refresh token to the blocklist will depend on the app design
-        jti = get_jwt()["jti"]
-        BLOCKLIST.add(jti)
         return {"access_token": new_token}, 200
